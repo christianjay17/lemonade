@@ -886,7 +886,9 @@
         if(isPaid) paidCount++; else pendingCount++;
         totalRev+=isPaid?(o.total||0):0;
         const itemLines=Object.values(o.items||{}).map(it=>`${it.emoji} ${it.name} ×${it.qty}`).join(', ');
-        const tipLine=(o.tip&&o.tip>0)?` + $${o.tip.toFixed(2)} tip`:'';
+        const totalTip = (o.customerTip || 0) + (o.tip || 0);
+        const displayTotal = o.grandTotal || o.total || 0;
+        const tipLine = totalTip > 0 ? ` + $${totalTip.toFixed(2)} tip` : '';
         let time='';
         if(o.createdAt&&o.createdAt.toDate){const d2=o.createdAt.toDate();time=d2.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+d2.toLocaleDateString([],{month:'short',day:'numeric'});}
         const badgeClass=isCash?'hbadge-cash':isPaid?'hbadge-paid':'hbadge-pending';
@@ -899,7 +901,7 @@
           </div>
           <div class="history-items-list">${itemLines}</div>
           <div class="history-footer">
-            <span class="history-total">$${(o.total||0).toFixed(2)}${tipLine}</span>
+            <span class="history-total">$${displayTotal.toFixed(2)}${tipLine}</span>
             <span class="history-badge ${badgeClass}">${badgeText}</span>
           </div>
         </div>`;
