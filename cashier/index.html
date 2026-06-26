@@ -886,6 +886,7 @@
         if(isPaid) paidCount++; else pendingCount++;
         totalRev+=isPaid?(o.total||0):0;
         const itemLines=Object.values(o.items||{}).map(it=>`${it.emoji} ${it.name} ×${it.qty}`).join(', ');
+        console.log('ORDER', code, 'customerTip:', o.customerTip, 'tip:', o.tip, 'grandTotal:', o.grandTotal, 'total:', o.total);
         const totalTip = parseFloat(o.customerTip || 0) + parseFloat(o.tip || 0);
         const displayTotal = parseFloat(o.grandTotal || o.total || 0);
         const tipLine = totalTip > 0 ? ` + $${totalTip.toFixed(2)} tip` : '';
