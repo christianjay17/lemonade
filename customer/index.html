@@ -38,7 +38,27 @@
   .success-box p { font-size: 15px; color: #666; line-height: 1.5; }
   .another-btn { margin-top: 1.5rem; padding: 12px 28px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-size: 15px; color: #333; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .another-btn:active { background: #f5f5f5; }
-  #orderView, #successView { display: none; }
+  #orderView, #tipView, #successView { display: none; }
+  /* ── TIP ── */
+  .tip-header { font-size: 16px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .tip-sub { font-size: 13px; color: #888; margin-bottom: 16px; }
+  .tip-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .tip-preset { border: 1px solid #e8e0d0; border-radius: 8px; padding: 12px 4px; cursor: pointer; text-align: center; background: #fff; font-size: 15px; font-weight: 500; color: #1a1a1a; -webkit-tap-highlight-color: transparent; }
+  .tip-preset:active { background: #fffbf2; }
+  .tip-preset.selected { border: 2px solid #EF9F27; background: #FAEEDA; color: #412402; font-weight: 600; }
+  .tip-preset .tip-pct { font-size: 15px; font-weight: 600; }
+  .tip-preset .tip-amt { font-size: 11px; color: #888; margin-top: 2px; }
+  .tip-preset.selected .tip-amt { color: #854F0B; }
+  .tip-custom-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .tip-custom-input { flex: 1; height: 46px; border-radius: 8px; border: 1px solid #e8e0d0; background: #fff; color: #1a1a1a; padding: 0 12px; font-size: 16px; font-family: inherit; }
+  .tip-custom-input:focus { outline: none; border-color: #EF9F27; box-shadow: 0 0 0 2px rgba(239,159,39,0.15); }
+  .tip-custom-input::placeholder { color: #bbb; }
+  .tip-lbl { font-size: 14px; color: #888; white-space: nowrap; }
+  .tip-total-row { display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; color: #1a1a1a; padding: 12px 0 16px; border-top: 1px solid #f0ebe0; }
+  .tip-pay-btn { width: 100%; padding: 15px; border-radius: 8px; border: none; background: #3D95CE; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .tip-pay-btn:active { background: #2d7aad; }
+  .tip-skip { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e8e0d0; background: #fff; color: #888; font-size: 14px; cursor: pointer; margin-top: 8px; -webkit-tap-highlight-color: transparent; }
+  .tip-skip:active { background: #f5f5f5; }
 </style>
 </head>
 <body>
@@ -74,6 +94,41 @@
     </div>
   </div>
 
+  <div id="tipView">
+    <div class="card">
+      <div class="tip-header">Add a tip? 🍋</div>
+      <div class="tip-sub">100% goes to the stand</div>
+      <div class="tip-presets" id="tipPresets">
+        <div class="tip-preset" onclick="selectCustomerTip(this, 0)">
+          <div class="tip-pct">No tip</div>
+          <div class="tip-amt">&nbsp;</div>
+        </div>
+        <div class="tip-preset" onclick="selectCustomerTip(this, 10)">
+          <div class="tip-pct">10%</div>
+          <div class="tip-amt" id="tip10amt"></div>
+        </div>
+        <div class="tip-preset" onclick="selectCustomerTip(this, 15)">
+          <div class="tip-pct">15%</div>
+          <div class="tip-amt" id="tip15amt"></div>
+        </div>
+        <div class="tip-preset" onclick="selectCustomerTip(this, 20)">
+          <div class="tip-pct">20%</div>
+          <div class="tip-amt" id="tip20amt"></div>
+        </div>
+      </div>
+      <div class="tip-custom-row">
+        <span class="tip-lbl">Custom $</span>
+        <input class="tip-custom-input" id="customerTipCustom" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" oninput="onCustomerCustomTip()">
+      </div>
+      <div class="tip-total-row">
+        <span>Total with tip</span>
+        <span id="tipGrandTotal"></span>
+      </div>
+      <button class="tip-pay-btn" id="tipPayBtn" onclick="proceedToPay()">Open Venmo — <span id="tipPayAmt"></span></button>
+      <button class="tip-skip" onclick="skipTip()">No thanks, skip tip</button>
+    </div>
+  </div>
+
   <div id="successView">
     <div class="card">
       <div class="success-box">
@@ -104,6 +159,7 @@
 
   let currentCode = null;
   let currentOrder = null;
+  let customerTip = 0;
 
   window.lookupCode = async () => {
     const code = document.getElementById('codeInput').value.trim().toUpperCase();
@@ -143,7 +199,7 @@
       } else if (currentOrder.payment === 'venmo') {
         banner.className = 'payment-banner banner-venmo';
         banner.innerHTML = '💙 Pay with Venmo';
-        btnWrap.innerHTML = `<button class="pay-btn pay-btn-venmo" onclick="window.handlePay('venmo')">Open Venmo — $${total}</button>`;
+        btnWrap.innerHTML = `<button class="pay-btn pay-btn-venmo" onclick="window.goToTip()">Continue to pay →</button>`;
       } else {
         banner.className = 'payment-banner banner-apple';
         banner.innerHTML = '🍎 Pay with Apple Pay';
@@ -159,6 +215,59 @@
       btn.disabled = false; btn.textContent = 'Look up order';
       console.error(e);
     }
+  };
+
+  window.goToTip = () => {
+    customerTip = 0;
+    document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('selected'));
+    document.getElementById('customerTipCustom').value = '';
+    const subtotal = currentOrder.subtotal || currentOrder.total;
+    document.getElementById('tip10amt').textContent = '$' + (subtotal * 0.10).toFixed(2);
+    document.getElementById('tip15amt').textContent = '$' + (subtotal * 0.15).toFixed(2);
+    document.getElementById('tip20amt').textContent = '$' + (subtotal * 0.20).toFixed(2);
+    updateTipTotal();
+    document.getElementById('orderView').style.display = 'none';
+    document.getElementById('tipView').style.display = 'block';
+  };
+
+  window.selectCustomerTip = (el, pct) => {
+    document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('customerTipCustom').value = '';
+    const subtotal = currentOrder.subtotal || currentOrder.total;
+    customerTip = pct === 0 ? 0 : parseFloat((subtotal * pct / 100).toFixed(2));
+    updateTipTotal();
+  };
+
+  window.onCustomerCustomTip = () => {
+    document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('selected'));
+    const v = parseFloat(document.getElementById('customerTipCustom').value);
+    customerTip = isNaN(v) || v < 0 ? 0 : parseFloat(v.toFixed(2));
+    updateTipTotal();
+  };
+
+  function updateTipTotal() {
+    const subtotal = currentOrder.subtotal || currentOrder.total;
+    const grand = (subtotal + customerTip).toFixed(2);
+    document.getElementById('tipGrandTotal').textContent = '$' + grand;
+    document.getElementById('tipPayAmt').textContent = '$' + grand;
+    document.getElementById('tipPayBtn').onclick = () => proceedToPay();
+  }
+
+  window.proceedToPay = async () => {
+    const subtotal = currentOrder.subtotal || currentOrder.total;
+    const grand = (subtotal + customerTip).toFixed(2);
+    try { await updateDoc(doc(db, 'orders', currentCode), { status: 'paid', customerTip, grandTotal: parseFloat(grand) }); } catch(e) { console.error(e); }
+    window.location.href = `https://venmo.com/Christian_Schrader?txn=pay&amount=${grand}&note=Lemonade%20Stand%20Order%20${currentCode}`;
+    showSuccess('💙', 'Venmo opened!', 'Please complete the payment in the Venmo app. Enjoy your lemonade! 🍋');
+  };
+
+  window.skipTip = async () => {
+    customerTip = 0;
+    const amount = (currentOrder.subtotal || currentOrder.total).toFixed(2);
+    try { await updateDoc(doc(db, 'orders', currentCode), { status: 'paid', customerTip: 0 }); } catch(e) { console.error(e); }
+    window.location.href = `https://venmo.com/Christian_Schrader?txn=pay&amount=${amount}&note=Lemonade%20Stand%20Order%20${currentCode}`;
+    showSuccess('💙', 'Venmo opened!', 'Please complete the payment in the Venmo app. Enjoy your lemonade! 🍋');
   };
 
   window.handlePay = async (method) => {
@@ -182,12 +291,13 @@
   }
 
   window.resetCustomer = () => {
-    currentCode = null; currentOrder = null;
+    currentCode = null; currentOrder = null; customerTip = 0;
     document.getElementById('codeInput').value = '';
     document.getElementById('lookupBtn').disabled = false;
     document.getElementById('lookupBtn').textContent = 'Look up order';
     document.getElementById('lookupView').style.display = 'block';
     document.getElementById('orderView').style.display = 'none';
+    document.getElementById('tipView').style.display = 'none';
     document.getElementById('successView').style.display = 'none';
   };
 
