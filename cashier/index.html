@@ -888,7 +888,8 @@
         const itemLines=Object.values(o.items||{}).map(it=>`${it.emoji} ${it.name} ×${it.qty}`).join(', ');
         console.log('ORDER', code, 'customerTip:', o.customerTip, 'tip:', o.tip, 'grandTotal:', o.grandTotal, 'total:', o.total);
         const totalTip = parseFloat(o.customerTip || 0) + parseFloat(o.tip || 0);
-        const displayTotal = parseFloat(o.grandTotal || o.total || 0);
+        const subtotal = parseFloat(o.subtotal || o.total || 0);
+        const displayTotal = totalTip > 0 ? subtotal : parseFloat(o.grandTotal || o.total || 0);
         const tipLine = totalTip > 0 ? ` + $${totalTip.toFixed(2)} tip` : '';
         let time='';
         if(o.createdAt&&o.createdAt.toDate){const d2=o.createdAt.toDate();time=d2.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+d2.toLocaleDateString([],{month:'short',day:'numeric'});}
