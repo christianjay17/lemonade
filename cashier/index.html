@@ -884,7 +884,8 @@
         const o=d.data(), code=d.id;
         const isPaid=o.status==='paid'||o.cashPaid, isCash=o.cashPaid;
         if(isPaid) paidCount++; else pendingCount++;
-        totalRev+=isPaid?(o.total||0):0;
+        const orderGrandTotal = parseFloat(o.grandTotal || o.total || 0);
+        totalRev+=isPaid?orderGrandTotal:0;
         const itemLines=Object.values(o.items||{}).map(it=>`${it.emoji} ${it.name} ×${it.qty}`).join(', ');
         console.log('ORDER', code, 'customerTip:', o.customerTip, 'tip:', o.tip, 'grandTotal:', o.grandTotal, 'total:', o.total);
         const totalTip = parseFloat(o.customerTip || 0) + parseFloat(o.tip || 0);
