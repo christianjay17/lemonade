@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Customers — Lemonade Stand Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; min-width: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fffbf2; color: #1a1a1a; min-height: 100vh; }
+  button, input, select, textarea { font-family: inherit; }
+  button { -webkit-tap-highlight-color: transparent; cursor: pointer; }
+  :focus-visible { outline: 3px solid #EF9F27; outline-offset: 2px; }
+
+  .header { background: #EF9F27; padding: 1rem 1.25rem; display: flex; align-items: center; gap: 10px; }
+  .header-emoji { font-size: 24px; }
+  .header-title { font-size: 17px; font-weight: 600; color: #412402; }
+  .header-sub { font-size: 12px; color: #633806; overflow-wrap: anywhere; }
+  .header-right { margin-left: auto; }
+  .ghost-btn { background: rgba(0,0,0,0.12); border: none; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-weight: 600; color: #412402; min-height: 40px; }
+  .ghost-btn:active { background: rgba(0,0,0,0.22); }
+
+  .container { max-width: 760px; margin: 0.875rem auto; padding: 0 0.75rem 6rem; }
+  .card { background: #fff; border: 1px solid #e8e0d0; border-radius: 12px; padding: 1rem; margin-bottom: 0.875rem; }
+  .section-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .center { text-align: center; padding: 2.5rem 1.25rem; }
+  .center h1 { font-size: 22px; color: #412402; margin: 10px 0 6px; }
+  .center p { color: #777; font-size: 15px; line-height: 1.5; margin-bottom: 18px; }
+  .big-emoji { font-size: 48px; }
+  .primary-btn { width: 100%; max-width: 320px; padding: 15px; border-radius: 10px; border: none; background: #EF9F27; color: #412402; font-size: 16px; font-weight: 600; }
+  .primary-btn:active { background: #FAC775; }
+  .primary-btn:disabled { opacity: 0.45; }
+  .err { color: #c0392b; font-size: 14px; margin-top: 10px; min-height: 18px; overflow-wrap: anywhere; }
+
+  /* Setup instructions */
+  .steps { text-align: left; max-width: 560px; margin: 0 auto; }
+  .steps ol { padding-left: 1.25rem; line-height: 1.6; font-size: 15px; color: #333; }
+  .steps li { margin-bottom: 6px; }
+  pre { background: #faf6ee; border: 1px solid #ede5d8; border-radius: 8px; padding: 10px; font-size: 13px; overflow-x: auto; margin: 6px 0 10px; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 0.875rem; }
+  .stat { background: #fff; border: 1px solid #e8e0d0; border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .stat-num { font-size: 22px; font-weight: 700; color: #412402; }
+  .stat-lbl { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* Toolbar */
+  .toolbar { display: flex; gap: 8px; margin-bottom: 10px; }
+  .search { flex: 1; height: 46px; border-radius: 10px; border: 1px solid #e8e0d0; background: #fff; padding: 0 12px; font-size: 16px; }
+  .search:focus { outline: none; border-color: #EF9F27; box-shadow: 0 0 0 3px rgba(239,159,39,0.15); }
+  .small-btn { height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #e8e0d0; background: #fff; font-size: 14px; font-weight: 600; color: #412402; white-space: nowrap; }
+  .small-btn:active { background: #FAEEDA; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; }
+  .chip { flex: none; border: 1px solid #e8e0d0; background: #fff; border-radius: 99px; padding: 8px 12px; font-size: 13px; font-weight: 600; color: #555; min-height: 36px; }
+  .chip.on { background: #412402; border-color: #412402; color: #fff; }
+
+  /* Customer cards */
+  .cust { background: #fff; border: 1px solid #e8e0d0; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+  .cust-top { display: flex; align-items: flex-start; gap: 10px; }
+  .cust-avatar { width: 38px; height: 38px; border-radius: 50%; background: #FAEEDA; color: #854F0B; display: flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+  .cust-main { flex: 1; }
+  .cust-name { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+  .cust-stand { font-size: 13px; color: #777; overflow-wrap: anywhere; }
+  .status { flex: none; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+  .s-sold { background: #FDE8B0; color: #7A4F00; }
+  .s-firebase { background: #E6F1FB; color: #185FA5; }
+  .s-deployed { background: #EDE3F6; color: #5B2C83; }
+  .s-handed { background: #C0DD97; color: #173404; }
+  .s-help { background: #fde2de; color: #a12a1e; }
+  .cust-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; font-size: 13px; color: #555; margin: 10px 0 0 48px; }
+  .cust-details dt { color: #999; }
+  .cust-details dd { overflow-wrap: anywhere; }
+  .cust-details a { color: #185FA5; }
+  .cust-notes { font-size: 13px; color: #444; background: #faf6ee; border-radius: 8px; padding: 8px 10px; margin: 8px 0 0 48px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cust-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0 48px; }
+  .link-btn { font-size: 13px; font-weight: 600; padding: 7px 12px; border-radius: 8px; border: 1px solid #e8e0d0; background: #fff; color: #412402; text-decoration: none; min-height: 36px; display: inline-flex; align-items: center; }
+  .link-btn:active { background: #FAEEDA; }
+  .empty { text-align: center; color: #999; font-size: 14px; padding: 2rem 1rem; }
+  @media (max-width: 480px) {
+    .cust-details, .cust-notes, .cust-actions { margin-left: 0; }
+    .stat-num { font-size: 19px; }
+  }
+
+  .fab { position: fixed; right: 16px; bottom: 18px; z-index: 50; border: none; border-radius: 99px; background: #412402; color: #fff; font-size: 15px; font-weight: 600; padding: 15px 20px; box-shadow: 0 8px 20px rgba(65,36,2,0.3); }
+  .fab:active { background: #5a3a10; }
+
+  /* Edit sheet */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: none; align-items: flex-end; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 560px; max-height: 92vh; display: flex; flex-direction: column; }
+  @media (min-width: 640px) { .modal-overlay { align-items: center; } .modal { border-radius: 16px; } }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1rem 0.75rem; border-bottom: 1px solid #f0ebe0; }
+  .modal-title { font-size: 16px; font-weight: 600; }
+  .modal-close { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f0ebe0; font-size: 18px; color: #666; }
+  .modal-body { overflow-y: auto; padding: 0.75rem 1rem; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 4px; }
+  .field input, .field select, .field textarea { width: 100%; min-height: 44px; border-radius: 8px; border: 1px solid #e8e0d0; background: #fff; padding: 10px 12px; font-size: 16px; color: #1a1a1a; }
+  .field textarea { min-height: 80px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #EF9F27; box-shadow: 0 0 0 2px rgba(239,159,39,0.15); }
+  .field-hint { font-size: 12px; color: #999; margin-top: 3px; }
+  .row2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+  @media (max-width: 480px) { .row2 { grid-template-columns: minmax(0,1fr); } }
+  .check { display: flex; align-items: center; gap: 10px; font-size: 15px; min-height: 44px; }
+  .check input { width: 22px; height: 22px; accent-color: #EF9F27; }
+  .modal-footer { padding: 0.75rem 1rem 1rem; border-top: 1px solid #f0ebe0; display: flex; gap: 8px; }
+  .save-btn { flex: 1; padding: 14px; border-radius: 8px; border: none; background: #EF9F27; color: #412402; font-size: 16px; font-weight: 600; }
+  .save-btn:disabled { opacity: 0.45; }
+  .delete-btn { padding: 14px 16px; border-radius: 8px; border: 1px solid #f0c0b0; background: #fff5f3; color: #c0392b; font-size: 15px; font-weight: 600; }
+  .confirm-del { display: none; background: #fff5f3; border: 1px solid #f0c0b0; border-radius: 10px; padding: 12px; margin: 0 1rem 1rem; }
+  .confirm-del p { font-size: 14px; margin-bottom: 10px; }
+  .confirm-del .btns { display: flex; gap: 8px; }
+  .confirm-del button { flex: 1; padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+  .yes-del { border: none; background: #c0392b; color: #fff; }
+  .no-del { border: 1px solid #ddd; background: #fff; color: #333; }
+  #setupView, #signInView, #deniedView, #mainView { display: none; }
+  .cust-sales { font-size: 13px; color: #3B6D11; font-weight: 600; margin: 8px 0 0 48px; }
+  .cust-sales.muted { color: #aaa; font-weight: 400; }
+  @media (max-width: 480px) { .cust-sales { margin-left: 0; } }
+  .link-btn.manage { background: #412402; border-color: #412402; color: #fff; }
+  .fb-found { font-size: 12px; margin-top: 3px; color: #999; }
+  .fb-found.ok { color: #3B6D11; font-weight: 600; }
+  .field textarea.mono { font-family: ui-monospace, Menlo, monospace; font-size: 13px; min-height: 96px; }
+
+  /* Stand manager */
+  .modal.wide { max-width: 680px; height: 92vh; }
+  .tabs { display: flex; gap: 6px; padding: 10px 1rem 0; border-bottom: 1px solid #f0ebe0; }
+  .tab { border: none; background: none; padding: 10px 12px; font-size: 15px; font-weight: 600; color: #888; border-bottom: 3px solid transparent; min-height: 44px; }
+  .tab.on { color: #412402; border-bottom-color: #EF9F27; }
+  .pane { display: none; }
+  .pane.on { display: block; }
+  .sum-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-bottom: 12px; }
+  .sum { background: #faf6ee; border-radius: 10px; padding: 10px 8px; text-align: center; }
+  .sum-num { font-size: 19px; font-weight: 700; color: #412402; white-space: nowrap; }
+  .sum-lbl { font-size: 11px; color: #888; margin-top: 2px; }
+  .bars { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; align-items: end; height: 120px; margin: 4px 0 4px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; }
+  .bar { width: 100%; max-width: 36px; background: #EF9F27; border-radius: 6px 6px 2px 2px; min-height: 2px; }
+  .bar-amt { font-size: 10px; color: #854F0B; white-space: nowrap; }
+  .bar-days { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; font-size: 11px; color: #999; text-align: center; margin-bottom: 14px; }
+  .order { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; gap: 4px 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid #f3eee3; font-size: 13px; }
+  .order-code { font-family: 'Courier New', monospace; font-weight: 700; color: #412402; }
+  .order-what { color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .order-meta { grid-column: 2; font-size: 11px; color: #aaa; }
+  .order-amt { text-align: right; font-weight: 700; white-space: nowrap; }
+  .order-st { grid-column: 3; justify-self: end; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 99px; }
+  .st-paid { background: #C0DD97; color: #173404; } .st-pending { background: #FDE8B0; color: #7A4F00; } .st-opened { background: #E6F1FB; color: #185FA5; }
+  .pin-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: center; padding: 12px 0; border-bottom: 1px solid #f3eee3; }
+  .pin-who { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+  .pin-cur { font-size: 13px; color: #888; margin-top: 2px; }
+  .pin-cur button { border: none; background: none; color: #185FA5; font-size: 13px; padding: 4px; min-height: 32px; }
+  .pin-edit { display: flex; gap: 6px; grid-column: 1 / -1; }
+  .pin-edit input { flex: 1; height: 44px; border-radius: 8px; border: 1px solid #e8e0d0; padding: 0 10px; font-size: 16px; letter-spacing: 0.15em; }
+  .pin-edit button, .add-cashier button { height: 44px; padding: 0 14px; border-radius: 8px; border: none; background: #EF9F27; color: #412402; font-weight: 600; font-size: 14px; }
+  .remove-btn { height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #f0c0b0; background: #fff5f3; color: #c0392b; font-size: 13px; font-weight: 600; }
+  .add-cashier { display: flex; gap: 6px; margin-top: 14px; }
+  .add-cashier input { flex: 1; height: 44px; border-radius: 8px; border: 1px solid #e8e0d0; padding: 0 10px; font-size: 16px; }
+  .msg { font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .msg.ok { color: #3B6D11; } .msg.bad { color: #c0392b; }
+  .note-box { font-size: 12px; color: #888; background: #faf6ee; border-radius: 8px; padding: 8px 10px; margin: 10px 0; line-height: 1.45; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-emoji">🍋</div>
+  <div>
+    <div class="header-title">Customer Admin</div>
+    <div class="header-sub" id="headerSub">Lemonade Stand app</div>
+  </div>
+  <div class="header-right"><button class="ghost-btn" id="signOutBtn" style="display:none;">Sign out</button></div>
+</div>
+
+<div class="container">
+
+  <!-- Shown until the Firebase config is pasted in -->
+  <div id="setupView" class="card center">
+    <div class="big-emoji">🔧</div>
+    <h1>Almost ready</h1>
+    <p>This page needs its own private Firebase project before it can save customers.</p>
+    <div class="steps">
+      <ol>
+        <li>In the Firebase console, create a new project (e.g. <b>lemonade-admin</b>), no Analytics.</li>
+        <li><b>Build → Authentication → Get started → Google</b>: turn it on and Save.</li>
+        <li><b>Authentication → Settings → Authorized domains</b>: add <code>lemonade-e48.pages.dev</code>.</li>
+        <li><b>Firestore Database → Create database</b> in <b>production mode</b>.</li>
+        <li><b>Rules</b> tab: replace everything with this, then Publish:
+          <pre id="rulesText"></pre></li>
+        <li><b>Project settings → Your apps → Web</b>: register an app and copy the <code>firebaseConfig</code> into this file.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div id="signInView" class="card center">
+    <div class="big-emoji">🔐</div>
+    <h1>Admin sign-in</h1>
+    <p>Only the owner's Google account can open the customer list.</p>
+    <button class="primary-btn" id="signInBtn">Sign in with Google</button>
+    <div class="err" id="signInErr"></div>
+  </div>
+
+  <div id="deniedView" class="card center">
+    <div class="big-emoji">⛔</div>
+    <h1>Not the admin account</h1>
+    <p id="deniedMsg"></p>
+    <button class="primary-btn" id="switchBtn">Use a different account</button>
+  </div>
+
+  <div id="mainView">
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <input class="search" id="search" type="search" placeholder="Search name, stand, Venmo…" autocomplete="off">
+      <button class="small-btn" id="exportBtn">Export CSV</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div id="list"><div class="empty">Loading customers…</div></div>
+    <div class="err" id="listErr"></div>
+  </div>
+</div>
+
+<button class="fab" id="addBtn" style="display:none;">+ Add customer</button>
+
+<div class="modal-overlay" id="editModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="editTitle">New customer</span>
+      <button class="modal-close" id="closeEdit" aria-label="Close">✕</button>
+    </div>
+    <form class="modal-body" id="editForm" novalidate>
+      <div class="row2">
+        <div class="field"><label for="f_name">Customer name *</label><input id="f_name" maxlength="60" autocomplete="off" required></div>
+        <div class="field"><label for="f_stand">Stand name</label><input id="f_stand" maxlength="60" autocomplete="off"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f_contact">Parent contact</label><input id="f_contact" maxlength="80" autocomplete="off" placeholder="Phone or email"></div>
+        <div class="field"><label for="f_venmo">Venmo username</label><input id="f_venmo" maxlength="40" autocomplete="off" autocapitalize="off" placeholder="no @"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f_status">Setup status</label><select id="f_status"></select></div>
+        <div class="field"><label for="f_sold">Sold on</label><input id="f_sold" type="date"></div>
+      </div>
+      <div class="field">
+        <label for="f_site">Site URL</label>
+        <input id="f_site" maxlength="120" autocomplete="off" autocapitalize="off" inputmode="url" placeholder="https://jakes-stand.pages.dev">
+        <div class="field-hint">Their /cashier/ and /pay/ links are made from this.</div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f_firebase">Firebase project ID</label><input id="f_firebase" maxlength="60" autocomplete="off" autocapitalize="off"></div>
+        <div class="field"><label for="f_repo">GitHub repo</label><input id="f_repo" maxlength="80" autocomplete="off" autocapitalize="off" placeholder="owner/repo"></div>
+      </div>
+      <div class="field">
+        <label for="f_fb">Their Firebase config</label>
+        <textarea id="f_fb" class="mono" spellcheck="false" placeholder='Paste their firebaseConfig = { apiKey: "...", projectId: "...", ... }'></textarea>
+        <div class="fb-found" id="fbFound">Needed to see their sales and change their PINs.</div>
+      </div>
+      <div class="field">
+        <label for="f_startPin">Starting admin PIN (from their kit)</label>
+        <input id="f_startPin" inputmode="numeric" maxlength="8" autocomplete="off">
+      </div>
+      <label class="check"><input type="checkbox" id="f_custom"> Bought the customization add-on</label>
+      <div class="field"><label for="f_notes">Notes</label><textarea id="f_notes" maxlength="1000"></textarea></div>
+      <div class="err" id="editErr"></div>
+    </form>
+    <div class="confirm-del" id="confirmDel">
+      <p>Delete <b id="delName"></b>? This can't be undone. Their stand keeps working.</p>
+      <div class="btns"><button class="yes-del" id="yesDel">Yes, delete</button><button class="no-del" id="noDel">Cancel</button></div>
+    </div>
+    <div class="modal-footer">
+      <button class="delete-btn" id="deleteBtn" type="button">Delete</button>
+      <button class="save-btn" id="saveBtn" type="submit" form="editForm">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="standModal">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="standTitle">
+    <div class="modal-header">
+      <span class="modal-title" id="standTitle">Stand</span>
+      <button class="modal-close" id="closeStand" aria-label="Close">✕</button>
+    </div>
+    <div class="tabs">
+      <button class="tab on" data-tab="salesPane">Sales</button>
+      <button class="tab" data-tab="pinsPane">PINs &amp; cashiers</button>
+    </div>
+    <div class="modal-body">
+      <div class="pane on" id="salesPane"><div class="empty">Loading sales…</div></div>
+      <div class="pane" id="pinsPane"><div class="empty">Loading accounts…</div></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, getDoc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ==== ADMIN CONFIG ====
+  // Who may sign in is decided by the Firestore rules (your email lives there, not in this public file).
+  // Paste the NEW admin Firebase project's config here (not the lemonade-10d16 one).
+  const firebaseConfig = {
+    apiKey: "PASTE_HERE",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+  };
+  // ==== END ADMIN CONFIG ====
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const STATUSES = [
+    { id: 'sold',     label: 'Sold',            cls: 's-sold' },
+    { id: 'firebase', label: 'Firebase set up', cls: 's-firebase' },
+    { id: 'deployed', label: 'Deployed',        cls: 's-deployed' },
+    { id: 'handed',   label: 'Handed off',      cls: 's-handed' },
+    { id: 'help',     label: 'Needs help',      cls: 's-help' },
+  ];
+  const statusOf = (id) => STATUSES.find(s => s.id === id) || STATUSES[0];
+
+  const views = ['setupView', 'signInView', 'deniedView', 'mainView'];
+  function show(id) {
+    views.forEach(v => $(v).style.display = v === id ? 'block' : 'none');
+    $('addBtn').style.display = id === 'mainView' ? 'block' : 'none';
+  }
+
+  $('rulesText').textContent =
+`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null
+        && request.auth.token.email == "YOUR-GOOGLE-EMAIL@gmail.com"
+        && request.auth.token.email_verified;
+    }
+  }
+}`;
+
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'PASTE_HERE') {
+    show('setupView');
+    throw new Error('Admin Firebase config not set yet');
+  }
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  let customers = [];
+  let filter = 'all';
+  let unsubscribe = null;
+  let editingId = null;
+
+  // ── Sign-in ──
+  $('signInBtn').addEventListener('click', async () => {
+    $('signInErr').textContent = '';
+    $('signInBtn').disabled = true;
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      if (!(e && e.code === 'auth/popup-closed-by-user')) {
+        $('signInErr').textContent = e && e.code === 'auth/unauthorized-domain'
+          ? 'This website isn\'t in Firebase\'s Authorized domains list yet.'
+          : 'Sign-in failed: ' + (e && e.message ? e.message : e);
+      }
+    }
+    $('signInBtn').disabled = false;
+  });
+  const doSignOut = () => signOut(auth);
+  $('signOutBtn').addEventListener('click', doSignOut);
+  $('switchBtn').addEventListener('click', doSignOut);
+
+  onAuthStateChanged(auth, (user) => {
+    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+    $('signOutBtn').style.display = user ? 'block' : 'none';
+    $('headerSub').textContent = user ? user.email : 'Lemonade Stand app';
+    if (!user) { customers = []; show('signInView'); return; }
+    show('mainView');
+    listen(user);
+  });
+
+  // ── Live customer list ──
+  function listen(user) {
+    $('listErr').textContent = '';
+    $('list').innerHTML = '<div class="empty">Loading customers…</div>';
+    unsubscribe = onSnapshot(query(collection(db, 'customers'), orderBy('createdAt', 'desc')), (snap) => {
+      customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      render();
+      customers.filter(hasFb).forEach(c => loadSales(c));
+    }, (e) => {
+      console.error(e);
+      $('list').innerHTML = '';
+      if (e && e.code === 'permission-denied') {
+        $('deniedMsg').textContent = `You're signed in as ${user.email}, which isn't allowed in. Sign in with the admin Google account, or check the email in the Firestore Rules.`;
+        show('deniedView');
+        return;
+      }
+      $('listErr').textContent = 'Could not load customers: ' + (e && e.message ? e.message : e);
+    });
+  }
+
+  function matches(c, q) {
+    if (!q) return true;
+    return [c.name, c.stand, c.venmo, c.contact, c.firebaseProject, c.repo, c.notes, c.site]
+      .some(v => String(v || '').toLowerCase().includes(q));
+  }
+
+  function siteLinks(site) {
+    const s = String(site || '').trim().replace(/\/+$/, '');
+    if (!/^https:\/\/[^\s"'<>]+$/.test(s)) return null;
+    return { cashier: s + '/cashier/', pay: s + '/pay/' };
+  }
+
+  function render() {
+    // Stats
+    const count = (id) => customers.filter(c => (c.status || 'sold') === id).length;
+    const loaded = customers.map(c => salesCache.get(c.id)).filter(x => x && !x.error);
+    const totalSales = loaded.reduce((s, x) => s + x.revenue, 0);
+    const stats = [
+      ['Customers', customers.length],
+      ['Setting up', count('sold') + count('firebase') + count('deployed')],
+      ['Handed off', count('handed')],
+      ['All stands sold', money(totalSales)],
+    ];
+    $('stats').innerHTML = stats.map(([l, n]) => `<div class="stat"><div class="stat-num">${esc(n)}</div><div class="stat-lbl">${l}</div></div>`).join('');
+
+    // Filter chips
+    const chips = [{ id: 'all', label: `All (${customers.length})` }, ...STATUSES.map(s => ({ id: s.id, label: `${s.label} (${count(s.id)})` }))];
+    $('chips').innerHTML = chips.map(c => `<button class="chip${c.id === filter ? ' on' : ''}" data-filter="${c.id}">${esc(c.label)}</button>`).join('');
+
+    // List
+    const q = $('search').value.trim().toLowerCase();
+    const shown = customers.filter(c => (filter === 'all' || (c.status || 'sold') === filter) && matches(c, q));
+    if (!customers.length) { $('list').innerHTML = '<div class="empty">No customers yet. Tap “+ Add customer” after your first sale.</div>'; return; }
+    if (!shown.length) { $('list').innerHTML = '<div class="empty">No customers match.</div>'; return; }
+
+    $('list').innerHTML = shown.map(c => {
+      const st = statusOf(c.status);
+      const links = siteLinks(c.site);
+      const rows = [
+        ['Contact', esc(c.contact)],
+        ['Venmo', c.venmo ? '@' + esc(c.venmo) : ''],
+        ['Sold', esc(c.soldOn)],
+        ['Firebase', esc(c.firebaseProject)],
+        ['Repo', c.repo && /^[\w.-]+\/[\w.-]+$/.test(c.repo) ? `<a href="https://github.com/${esc(c.repo)}" target="_blank" rel="noopener">${esc(c.repo)}</a>` : esc(c.repo)],
+        ['Add-on', c.custom ? 'Customization' : ''],
+      ].filter(([, v]) => v);
+      return `<div class="cust">
+        <div class="cust-top">
+          <div class="cust-avatar">${esc((c.name || '?')[0].toUpperCase())}</div>
+          <div class="cust-main">
+            <div class="cust-name">${esc(c.name)}</div>
+            <div class="cust-stand">${esc(c.stand || 'No stand name yet')}</div>
+          </div>
+          <span class="status ${st.cls}">${esc(st.label)}</span>
+        </div>
+        ${rows.length ? `<dl class="cust-details">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>` : ''}
+        ${c.notes ? `<div class="cust-notes">${esc(c.notes)}</div>` : ''}
+        ${salesLine(c)}
+        <div class="cust-actions">
+          ${hasFb(c) ? `<button class="link-btn manage" data-manage="${esc(c.id)}">Manage stand</button>` : ''}
+          <button class="link-btn" data-edit="${esc(c.id)}">Edit</button>
+          ${links ? `<a class="link-btn" href="${esc(links.cashier)}" target="_blank" rel="noopener">Cashier site</a><a class="link-btn" href="${esc(links.pay)}" target="_blank" rel="noopener">Pay site</a>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  $('search').addEventListener('input', render);
+  $('chips').addEventListener('click', e => { const b = e.target.closest('[data-filter]'); if (b) { filter = b.dataset.filter; render(); } });
+  $('list').addEventListener('click', e => {
+    const b = e.target.closest('[data-edit]'); if (b) return openEdit(b.dataset.edit);
+    const m = e.target.closest('[data-manage]'); if (m) openStand(m.dataset.manage);
+  });
+
+  // ── Add / edit ──
+  $('f_status').innerHTML = STATUSES.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
+  const FIELDS = { name: 'f_name', stand: 'f_stand', contact: 'f_contact', venmo: 'f_venmo', status: 'f_status', soldOn: 'f_sold', site: 'f_site', firebaseProject: 'f_firebase', repo: 'f_repo', notes: 'f_notes' };
+
+  function openEdit(id) {
+    editingId = id || null;
+    const c = id ? customers.find(x => x.id === id) : null;
+    $('editTitle').textContent = c ? 'Edit customer' : 'New customer';
+    Object.entries(FIELDS).forEach(([k, el]) => { $(el).value = c ? (c[k] || '') : ''; });
+    if (!c) { $('f_status').value = 'sold'; $('f_sold').value = new Date().toLocaleDateString('en-CA'); }
+    $('f_custom').checked = !!(c && c.custom);
+    $('f_fb').value = c && c.fb ? fbToText(c.fb) : '';
+    $('f_startPin').value = c ? (c.startAdminPin || '') : '';
+    updateFbFound();
+    $('deleteBtn').style.display = c ? 'block' : 'none';
+    $('confirmDel').style.display = 'none';
+    $('editErr').textContent = '';
+    $('saveBtn').disabled = false;
+    $('editModal').classList.add('open');
+    setTimeout(() => $('f_name').focus(), 50);
+  }
+  const closeEdit = () => { $('editModal').classList.remove('open'); editingId = null; };
+  $('addBtn').addEventListener('click', () => openEdit(null));
+  $('closeEdit').addEventListener('click', closeEdit);
+  $('editModal').addEventListener('click', e => { if (e.target === $('editModal')) closeEdit(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('editModal').classList.contains('open')) closeEdit(); });
+
+  $('editForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {};
+    Object.entries(FIELDS).forEach(([k, el]) => { data[k] = $(el).value.trim(); });
+    data.venmo = data.venmo.replace(/^@/, '');
+    data.site = data.site.replace(/\/+$/, '');
+    if (data.site && !/^https?:\/\//.test(data.site)) data.site = 'https://' + data.site;
+    data.repo = data.repo.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
+    data.custom = $('f_custom').checked;
+    data.startAdminPin = $('f_startPin').value.trim();
+    const fbText = $('f_fb').value.trim();
+    data.fb = fbText ? parseFirebase(fbText) : null;
+    if (!data.name) { $('editErr').textContent = 'Enter the customer\'s name.'; $('f_name').focus(); return; }
+    if (fbText && !(data.fb.apiKey && data.fb.projectId && data.fb.appId)) { $('editErr').textContent = 'The Firebase config is missing apiKey, projectId or appId.'; $('f_fb').focus(); return; }
+    if (data.startAdminPin && !/^\d{8}$/.test(data.startAdminPin)) { $('editErr').textContent = 'Starting admin PIN must be 8 digits.'; $('f_startPin').focus(); return; }
+    if (data.fb && !data.firebaseProject) data.firebaseProject = data.fb.projectId;
+    if (data.site && !siteLinks(data.site)) { $('editErr').textContent = 'Site URL should look like https://their-stand.pages.dev'; $('f_site').focus(); return; }
+    $('saveBtn').disabled = true; $('editErr').textContent = '';
+    try {
+      if (editingId) await updateDoc(doc(db, 'customers', editingId), { ...data, updatedAt: serverTimestamp() });
+      else await addDoc(collection(db, 'customers'), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      closeEdit();
+    } catch (err) {
+      console.error(err);
+      $('editErr').textContent = 'Could not save: ' + (err && err.message ? err.message : err);
+      $('saveBtn').disabled = false;
+    }
+  });
+
+  // ── Delete ──
+  $('deleteBtn').addEventListener('click', () => {
+    const c = customers.find(x => x.id === editingId);
+    $('delName').textContent = c ? c.name : '';
+    $('confirmDel').style.display = 'block';
+  });
+  $('noDel').addEventListener('click', () => { $('confirmDel').style.display = 'none'; });
+  $('yesDel').addEventListener('click', async () => {
+    try { await deleteDoc(doc(db, 'customers', editingId)); closeEdit(); }
+    catch (err) { console.error(err); $('editErr').textContent = 'Could not delete: ' + (err && err.message ? err.message : err); }
+  });
+
+  // ── Export ──
+  $('exportBtn').addEventListener('click', () => {
+    const cols = ['name', 'stand', 'contact', 'venmo', 'status', 'soldOn', 'site', 'firebaseProject', 'repo', 'custom', 'notes', 'orders', 'sales'];
+    const cell = (v) => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+    const csv = [cols.join(','), ...customers.map(c => { const s = salesCache.get(c.id); return cols.map(k => cell(k === 'status' ? statusOf(c.status).label : k === 'orders' ? (s && !s.error ? s.orders : '') : k === 'sales' ? (s && !s.error ? s.revenue.toFixed(2) : '') : c[k])).join(','); })].join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `customers-${new Date().toLocaleDateString('en-CA')}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  // ════════════ Connecting to each customer's stand ════════════
+  const FB_KEYS = ['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId','measurementId'];
+  const money = (n) => '$' + Number(n || 0).toFixed(2);
+  const salesCache = new Map(); // customer id -> summary
+  const standDbs = new Map();   // config key -> Firestore
+  let managing = null;          // customer being managed
+  let standAccounts = null;     // { list, adminPin }
+
+  function parseFirebase(text) {
+    const cfg = {};
+    for (const k of FB_KEYS) {
+      const m = text.match(new RegExp(k + '\\s*["\']?\\s*:\\s*["\']([^"\']+)["\']'));
+      if (m) cfg[k] = m[1].trim();
+    }
+    return cfg;
+  }
+  const fbToText = (fb) => '{\n' + FB_KEYS.filter(k => fb[k]).map(k => `  ${k}: "${fb[k]}"`).join(',\n') + '\n}';
+  const hasFb = (c) => !!(c && c.fb && c.fb.apiKey && c.fb.projectId);
+  function updateFbFound() {
+    const t = $('f_fb').value.trim(), el = $('fbFound');
+    if (!t) { el.className = 'fb-found'; el.textContent = 'Needed to see their sales and change their PINs.'; return; }
+    const fb = parseFirebase(t);
+    el.className = fb.projectId && fb.apiKey ? 'fb-found ok' : 'fb-found';
+    el.textContent = fb.projectId && fb.apiKey ? `Found project ${fb.projectId}` : 'No apiKey/projectId found yet.';
+  }
+  $('f_fb').addEventListener('input', updateFbFound);
+
+  function standDb(c) {
+    const key = c.fb.projectId + '|' + c.fb.apiKey;
+    if (!standDbs.has(key)) {
+      const name = 'stand-' + standDbs.size + '-' + c.fb.projectId;
+      standDbs.set(key, getFirestore(initializeApp(c.fb, name)));
+    }
+    return standDbs.get(key);
+  }
+
+  const orderTotal = (o) => Number(o.grandTotal || o.total || 0);
+  const isPaid = (o) => o.status === 'paid' || !!o.cashPaid;
+  const toDate = (v) => v && v.toDate ? v.toDate() : (v instanceof Date ? v : null);
+
+  async function fetchOrders(c) {
+    const snap = await getDocs(collection(standDb(c), 'orders'));
+    const orders = snap.docs.map(d => ({ code: d.id, ...d.data() }));
+    orders.sort((a, b) => ((toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0)));
+    return orders;
+  }
+  function summarize(orders) {
+    const paid = orders.filter(isPaid);
+    const tips = paid.reduce((s, o) => s + Number(o.tip || 0) + Number(o.customerTip || 0), 0);
+    const last = orders.length ? toDate(orders[0].createdAt) : null;
+    return { orders: orders.length, paid: paid.length, pending: orders.length - paid.length, revenue: paid.reduce((s, o) => s + orderTotal(o), 0), tips, last };
+  }
+  async function loadSales(c) {
+    try { salesCache.set(c.id, summarize(await fetchOrders(c))); }
+    catch (e) { console.error(e); salesCache.set(c.id, { error: true }); }
+    render();
+  }
+  function salesLine(c) {
+    if (!hasFb(c)) return '';
+    const s = salesCache.get(c.id);
+    if (!s) return '<div class="cust-sales muted">Loading sales…</div>';
+    if (s.error) return '<div class="cust-sales muted">Couldn\'t reach their Firebase</div>';
+    const last = s.last ? ' · last ' + s.last.toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+    return `<div class="cust-sales">${money(s.revenue)} sold · ${s.orders} order${s.orders === 1 ? '' : 's'}${s.pending ? ` · ${s.pending} unpaid` : ''}${last}</div>`;
+  }
+
+  // ── Stand manager modal ──
+  function openStand(id) {
+    managing = customers.find(c => c.id === id);
+    if (!managing) return;
+    $('standTitle').textContent = managing.stand || managing.name;
+    setTab('salesPane');
+    $('salesPane').innerHTML = '<div class="empty">Loading sales…</div>';
+    $('pinsPane').innerHTML = '<div class="empty">Loading accounts…</div>';
+    $('standModal').classList.add('open');
+    loadStandSales();
+    loadStandAccounts();
+  }
+  const closeStand = () => { $('standModal').classList.remove('open'); managing = null; standAccounts = null; };
+  $('closeStand').addEventListener('click', closeStand);
+  $('standModal').addEventListener('click', e => { if (e.target === $('standModal')) closeStand(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('standModal').classList.contains('open')) closeStand(); });
+  function setTab(id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === id));
+    document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === id));
+  }
+  document.querySelector('.tabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (t) setTab(t.dataset.tab); });
+
+  async function loadStandSales() {
+    const c = managing;
+    try {
+      const orders = await fetchOrders(c);
+      if (managing !== c) return;
+      const s = summarize(orders);
+      salesCache.set(c.id, s); render();
+      // Last 7 days of paid sales
+      const days = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i); days.push({ d, amt: 0 }); }
+      orders.filter(isPaid).forEach(o => { const t = toDate(o.createdAt); if (!t) return; const day = days.find(x => t >= x.d && t < new Date(x.d.getTime() + 864e5)); if (day) day.amt += orderTotal(o); });
+      const max = Math.max(...days.map(x => x.amt), 1);
+      const st = (o) => isPaid(o) ? ['st-paid', o.cashPaid ? 'Cash' : 'Paid'] : o.status === 'venmo_opened' ? ['st-opened', 'Venmo opened'] : ['st-pending', 'Unpaid'];
+      $('salesPane').innerHTML = `
+        <div class="sum-grid">
+          <div class="sum"><div class="sum-num">${money(s.revenue)}</div><div class="sum-lbl">Sold (paid)</div></div>
+          <div class="sum"><div class="sum-num">${s.orders}</div><div class="sum-lbl">Orders</div></div>
+          <div class="sum"><div class="sum-num">${s.pending}</div><div class="sum-lbl">Unpaid</div></div>
+          <div class="sum"><div class="sum-num">${money(s.revenue / (s.paid || 1))}</div><div class="sum-lbl">Avg paid order</div></div>
+          <div class="sum"><div class="sum-num">${money(s.tips)}</div><div class="sum-lbl">Tips</div></div>
+          <div class="sum"><div class="sum-num">${s.last ? esc(s.last.toLocaleDateString([], { month: 'short', day: 'numeric' })) : '—'}</div><div class="sum-lbl">Last order</div></div>
+        </div>
+        <p class="section-label">Paid sales, last 7 days</p>
+        <div class="bars">${days.map(x => `<div class="bar-col"><span class="bar-amt">${x.amt ? money(x.amt) : ''}</span><div class="bar" style="height:${Math.round(x.amt / max * 90)}%"></div></div>`).join('')}</div>
+        <div class="bar-days">${days.map(x => `<span>${esc(x.d.toLocaleDateString([], { weekday: 'short' }))}</span>`).join('')}</div>
+        <p class="section-label">Recent orders</p>
+        ${orders.length ? orders.slice(0, 30).map(o => {
+          const t = toDate(o.createdAt), [cls, label] = st(o);
+          const what = Object.values(o.items || {}).map(it => `${it.name} ×${it.qty}`).join(', ');
+          return `<div class="order"><span class="order-code">${esc(o.code)}</span><span class="order-what">${esc(what)}</span><span class="order-amt">${money(orderTotal(o))}</span>
+            <span class="order-meta">${t ? esc(t.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ''}${o.cashier ? ' · ' + esc(o.cashier) : ''}</span><span class="order-st ${cls}">${label}</span></div>`;
+        }).join('') : '<div class="empty">No orders yet.</div>'}`;
+    } catch (e) {
+      console.error(e);
+      if (managing === c) $('salesPane').innerHTML = `<div class="empty">Couldn't load their orders: ${esc(e.message || e)}</div>`;
+    }
+  }
+
+  async function loadStandAccounts() {
+    const c = managing;
+    try {
+      const snap = await getDoc(doc(standDb(c), 'config', 'accounts'));
+      if (managing !== c) return;
+      const data = snap.exists() ? snap.data() : {};
+      standAccounts = { list: Array.isArray(data.list) ? data.list : [], adminPin: data.adminPin || null };
+      renderPins();
+    } catch (e) {
+      console.error(e);
+      if (managing === c) $('pinsPane').innerHTML = `<div class="empty">Couldn't load their accounts: ${esc(e.message || e)}</div>`;
+    }
+  }
+
+  const masked = (pin) => pin ? '•'.repeat(pin.length) : '';
+  function renderPins() {
+    const c = managing, a = standAccounts;
+    const effectiveAdmin = a.adminPin || c.startAdminPin || '';
+    const adminSource = a.adminPin ? 'set in Admin Panel' : c.startAdminPin ? 'starting PIN from their kit' : 'starting PIN (not recorded here)';
+    const row = (who, id, pin, len, extra) => `
+      <div class="pin-row">
+        <div><div class="pin-who">${esc(who)}</div>
+          <div class="pin-cur">${pin ? `PIN <span data-pin="${esc(pin)}">${masked(pin)}</span> <button data-reveal>Show</button>` : 'No PIN set'}${extra ? ' · ' + extra : ''}</div></div>
+        ${id === 'admin' ? '' : `<button class="remove-btn" data-remove="${esc(id)}">Remove</button>`}
+        <div class="pin-edit"><input data-pin-input="${esc(id)}" inputmode="numeric" maxlength="${len}" placeholder="New ${len}-digit PIN" autocomplete="off"><button data-save-pin="${esc(id)}" data-len="${len}">Save</button></div>
+        <div class="msg" data-msg="${esc(id)}"></div>
+      </div>`;
+    $('pinsPane').innerHTML = `
+      <p class="section-label">Admin</p>
+      ${row('Admin', 'admin', effectiveAdmin, 8, esc(adminSource))}
+      <div class="note-box">A new admin PIN works on stands made with the generator, and on your own stand once the update is live. Older stands ignore it.</div>
+      <p class="section-label" style="margin-top:14px;">Cashiers</p>
+      ${a.list.length ? a.list.map(acc => row(acc.name, acc.id, acc.pin, 4, '')).join('') : '<div class="empty">No cashier accounts.</div>'}
+      <div class="add-cashier"><input id="newCashier" maxlength="20" placeholder="New cashier name" autocomplete="off"><button id="addCashierBtn">Add</button></div>
+      <div class="msg" id="pinsMsg"></div>`;
+  }
+
+  async function saveAccounts(patch) {
+    await setDoc(doc(standDb(managing), 'config', 'accounts'), patch, { merge: true });
+  }
+  const say = (el, text, ok) => { if (!el) return; el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'bad'); };
+
+  $('pinsPane').addEventListener('click', async (e) => {
+    const rev = e.target.closest('[data-reveal]');
+    if (rev) { const span = rev.previousElementSibling; const shown = span.textContent === span.dataset.pin; span.textContent = shown ? masked(span.dataset.pin) : span.dataset.pin; rev.textContent = shown ? 'Show' : 'Hide'; return; }
+
+    const save = e.target.closest('[data-save-pin]');
+    if (save) {
+      const id = save.dataset.savePin, len = +save.dataset.len;
+      const input = $('pinsPane').querySelector(`[data-pin-input="${CSS.escape(id)}"]`);
+      const msg = $('pinsPane').querySelector(`[data-msg="${CSS.escape(id)}"]`);
+      const pin = input.value.trim();
+      if (!new RegExp('^\\d{' + len + '}$').test(pin)) return say(msg, `Enter exactly ${len} digits.`, false);
+      save.disabled = true;
+      try {
+        if (id === 'admin') { await saveAccounts({ adminPin: pin }); standAccounts.adminPin = pin; }
+        else {
+          const list = standAccounts.list.map(acc => acc.id === id ? { ...acc, pin } : acc);
+          await saveAccounts({ list }); standAccounts.list = list;
+        }
+        renderPins();
+        say($('pinsPane').querySelector(`[data-msg="${CSS.escape(id)}"]`), 'Saved. Tell them their new PIN.', true);
+      } catch (err) { console.error(err); say(msg, 'Could not save: ' + (err.message || err), false); save.disabled = false; }
+      return;
+    }
+
+    const rm = e.target.closest('[data-remove]');
+    if (rm) {
+      if (rm.dataset.confirm !== '1') { rm.dataset.confirm = '1'; rm.textContent = 'Tap again to remove'; return; }
+      const list = standAccounts.list.filter(acc => acc.id !== rm.dataset.remove);
+      try { await saveAccounts({ list }); standAccounts.list = list; renderPins(); say($('pinsMsg'), 'Cashier removed.', true); }
+      catch (err) { console.error(err); say($('pinsMsg'), 'Could not remove: ' + (err.message || err), false); }
+      return;
+    }
+
+    if (e.target.id === 'addCashierBtn') {
+      const name = $('newCashier').value.trim();
+      if (!name) return say($('pinsMsg'), 'Enter a name.', false);
+      if (standAccounts.list.some(acc => acc.name.toLowerCase() === name.toLowerCase())) return say($('pinsMsg'), 'That name already exists.', false);
+      const colors = ['#E8A838','#3D95CE','#639922','#9B59B6','#E74C3C','#1ABC9C'];
+      const acc = { id: (name.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'user') + '_' + Date.now(), name, color: colors[standAccounts.list.length % colors.length], emoji: '👤', pin: null };
+      const list = [...standAccounts.list, acc];
+      try { await saveAccounts({ list }); standAccounts.list = list; renderPins(); say($('pinsMsg'), `${name} added. Set their PIN above.`, true); }
+      catch (err) { console.error(err); say($('pinsMsg'), 'Could not add: ' + (err.message || err), false); }
+    }
+  });
+</script>
+</body>
+</html>
