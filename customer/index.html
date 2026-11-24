@@ -26,19 +26,20 @@
   .payment-banner { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-radius: 8px; margin-top: 12px; font-size: 14px; font-weight: 500; }
   .banner-cash { background: #EAF3DE; color: #3B6D11; }
   .banner-venmo { background: #E6F1FB; color: #185FA5; }
-  .banner-apple { background: #f0f0f0; color: #1a1a1a; }
   .pay-btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; -webkit-tap-highlight-color: transparent; }
   .pay-btn-venmo { background: #3D95CE; color: #fff; }
   .pay-btn-venmo:active { background: #2d7aad; }
-  .pay-btn-apple { background: #000; color: #fff; }
-  .pay-btn-apple:active { background: #333; }
   .success-box { text-align: center; padding: 2rem 1rem; }
   .success-big { font-size: 52px; margin-bottom: 12px; }
   .success-box h2 { font-size: 22px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
   .success-box p { font-size: 15px; color: #666; line-height: 1.5; }
   .another-btn { margin-top: 1.5rem; padding: 12px 28px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-size: 15px; color: #333; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .another-btn:active { background: #f5f5f5; }
-  #orderView, #tipView, #successView { display: none; }
+  #loadingView, #orderView, #tipView, #successView { display: none; }
+  .banner-other { background: #f5f0e6; color: #633806; }
+  .loading-card { text-align: center; padding: 2rem 1rem; color: #888; font-size: 15px; }
+  .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #FAEEDA; border-top-color: #EF9F27; margin: 0 auto 12px; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   /* ── TIP ── */
   .tip-header { font-size: 16px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
   .tip-sub { font-size: 13px; color: #888; margin-bottom: 16px; }
@@ -66,7 +67,7 @@
 <div class="header">
   <div class="header-emoji">🍋</div>
   <div>
-    <div class="header-title">Lemonade Stand</div>
+    <div class="header-title" data-stand-name>Lemonade Stand</div>
     <div class="header-sub">Order Lookup</div>
   </div>
 </div>
@@ -78,6 +79,13 @@
       <input class="code-input" id="codeInput" type="text" placeholder="A1B2" maxlength="4" autocomplete="off" autocapitalize="characters" oninput="this.value=this.value.toUpperCase()">
       <button class="lookup-btn" id="lookupBtn" onclick="lookupCode()">Look up order</button>
       <div class="error-msg" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <div id="loadingView">
+    <div class="card loading-card">
+      <div class="spinner"></div>
+      <p>Finding your order...</p>
     </div>
   </div>
 
@@ -145,6 +153,9 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // ==== STAND CONFIG (the only part to edit per customer) ====
+  const STAND_NAME = 'Lemonade Stand';
+  const VENMO_USERNAME = 'Christian_Schrader'; // without the @
   const firebaseConfig = {
     apiKey: "AIzaSyBv5S44GU9ESCv-gypE7ujawsz5Je0935U",
     authDomain: "lemonade-10d16.firebaseapp.com",
@@ -153,27 +164,48 @@
     messagingSenderId: "190999159050",
     appId: "1:190999159050:web:894ae02547b1e59fd59af3"
   };
+  // ==== END STAND CONFIG ====
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money = (n) => '$' + Number(n || 0).toFixed(2);
+
+  document.title = `${STAND_NAME} — Order Lookup`;
+  document.querySelectorAll('[data-stand-name]').forEach(el => el.textContent = STAND_NAME);
 
   let currentCode = null;
   let currentOrder = null;
   let customerTip = 0;
 
+  const views = ['lookupView', 'loadingView', 'orderView', 'tipView', 'successView'];
+  function show(id) { views.forEach(v => document.getElementById(v).style.display = v === id ? 'block' : 'none'); }
+
+  // What the order costs before the customer's own tip (includes any tip added at the register)
+  const orderTotal = () => Number(currentOrder.total ?? currentOrder.subtotal ?? 0);
+  // Customer tip percentages are based on the items only
+  const orderSubtotal = () => Number(currentOrder.subtotal ?? currentOrder.total ?? 0);
+  const registerTip = () => Number(currentOrder.tip || 0);
+
+  function lookupError(msg) {
+    const errEl = document.getElementById('errorMsg');
+    const btn = document.getElementById('lookupBtn');
+    errEl.textContent = msg; errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Look up order';
+    show('lookupView');
+  }
+
   window.lookupCode = async () => {
     const code = document.getElementById('codeInput').value.trim().toUpperCase();
     const errEl = document.getElementById('errorMsg');
     const btn = document.getElementById('lookupBtn');
-    if (code.length < 4) { errEl.textContent = 'Please enter a 4-character code.'; errEl.style.display = 'block'; return; }
+    if (code.length < 4) { lookupError('Please enter a 4-character code.'); return; }
     btn.disabled = true; btn.textContent = 'Looking up...'; errEl.style.display = 'none';
+    show('loadingView');
     try {
       const snap = await getDoc(doc(db, 'orders', code));
-      if (!snap.exists()) {
-        errEl.textContent = 'Code not found — double-check with the cashier.';
-        errEl.style.display = 'block';
-        btn.disabled = false; btn.textContent = 'Look up order'; return;
-      }
+      if (!snap.exists()) { lookupError('Code not found — double-check with the cashier.'); return; }
       currentCode = code; currentOrder = snap.data();
 
       if (currentOrder.status === 'paid' && !currentOrder.cashPaid) {
@@ -182,38 +214,40 @@
       }
 
       let linesHtml = '';
-      Object.values(currentOrder.items).forEach(item => {
-        linesHtml += `<div class="order-row"><span>${item.emoji} ${item.name} ×${item.qty}</span><span>$${(item.price * item.qty).toFixed(2)}</span></div>`;
+      Object.values(currentOrder.items || {}).forEach(item => {
+        linesHtml += `<div class="order-row"><span>${esc(item.emoji)} ${esc(item.name)} ×${esc(item.qty)}</span><span>${money(item.price * item.qty)}</span></div>`;
       });
+      if (registerTip() > 0) linesHtml += `<div class="order-row"><span>Tip</span><span>${money(registerTip())}</span></div>`;
       document.getElementById('orderLines').innerHTML = linesHtml;
-      document.getElementById('orderTotal').textContent = '$' + currentOrder.total.toFixed(2);
+      document.getElementById('orderTotal').textContent = money(orderTotal());
 
       const banner = document.getElementById('paymentBanner');
       const btnWrap = document.getElementById('payBtnWrap');
-      const total = currentOrder.total.toFixed(2);
 
       if (currentOrder.cashPaid) {
         banner.className = 'payment-banner banner-cash';
-        banner.innerHTML = '✅ Cash already paid — you\'re all set!';
+        banner.textContent = '✅ Cash already paid — you\'re all set!';
         btnWrap.innerHTML = '';
       } else if (currentOrder.payment === 'venmo') {
         banner.className = 'payment-banner banner-venmo';
-        banner.innerHTML = '💙 Pay with Venmo';
-        btnWrap.innerHTML = `<button class="pay-btn pay-btn-venmo" onclick="window.goToTip()">Continue to pay →</button>`;
+        banner.textContent = '💙 Pay with Venmo';
+        if (registerTip() > 0) {
+          // Tip was already added at the register, so don't ask again
+          btnWrap.innerHTML = `<button class="pay-btn pay-btn-venmo" onclick="window.payNoExtraTip()">Open Venmo — ${money(orderTotal())}</button>`;
+        } else {
+          btnWrap.innerHTML = `<button class="pay-btn pay-btn-venmo" onclick="window.goToTip()">Continue to pay →</button>`;
+        }
       } else {
-        banner.className = 'payment-banner banner-apple';
-        banner.innerHTML = '🍎 Pay with Apple Pay';
-        btnWrap.innerHTML = `<button class="pay-btn pay-btn-apple" onclick="window.handlePay('apple')">Pay $${total}</button>`;
+        banner.className = 'payment-banner banner-other';
+        banner.textContent = 'Please ask the cashier how to pay for this order.';
+        btnWrap.innerHTML = '';
       }
 
-      document.getElementById('lookupView').style.display = 'none';
-      document.getElementById('orderView').style.display = 'block';
+      show('orderView');
       btn.disabled = false; btn.textContent = 'Look up order';
     } catch (e) {
-      errEl.textContent = 'Something went wrong. Check your connection and try again.';
-      errEl.style.display = 'block';
-      btn.disabled = false; btn.textContent = 'Look up order';
       console.error(e);
+      lookupError('Something went wrong. Check your connection and try again.');
     }
   };
 
@@ -221,21 +255,19 @@
     customerTip = 0;
     document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('selected'));
     document.getElementById('customerTipCustom').value = '';
-    const subtotal = currentOrder.subtotal || currentOrder.total;
-    document.getElementById('tip10amt').textContent = '$' + (subtotal * 0.10).toFixed(2);
-    document.getElementById('tip15amt').textContent = '$' + (subtotal * 0.15).toFixed(2);
-    document.getElementById('tip20amt').textContent = '$' + (subtotal * 0.20).toFixed(2);
+    const sub = orderSubtotal();
+    document.getElementById('tip10amt').textContent = money(sub * 0.10);
+    document.getElementById('tip15amt').textContent = money(sub * 0.15);
+    document.getElementById('tip20amt').textContent = money(sub * 0.20);
     updateTipTotal();
-    document.getElementById('orderView').style.display = 'none';
-    document.getElementById('tipView').style.display = 'block';
+    show('tipView');
   };
 
   window.selectCustomerTip = (el, pct) => {
     document.querySelectorAll('.tip-preset').forEach(p => p.classList.remove('selected'));
     el.classList.add('selected');
     document.getElementById('customerTipCustom').value = '';
-    const subtotal = currentOrder.subtotal || currentOrder.total;
-    customerTip = pct === 0 ? 0 : parseFloat((subtotal * pct / 100).toFixed(2));
+    customerTip = pct === 0 ? 0 : parseFloat((orderSubtotal() * pct / 100).toFixed(2));
     updateTipTotal();
   };
 
@@ -247,65 +279,48 @@
   };
 
   function updateTipTotal() {
-    const subtotal = currentOrder.subtotal || currentOrder.total;
-    const grand = (subtotal + customerTip).toFixed(2);
-    document.getElementById('tipGrandTotal').textContent = '$' + grand;
-    document.getElementById('tipPayAmt').textContent = '$' + grand;
-    document.getElementById('tipPayBtn').onclick = () => proceedToPay();
+    const grand = money(orderTotal() + customerTip);
+    document.getElementById('tipGrandTotal').textContent = grand;
+    document.getElementById('tipPayAmt').textContent = grand;
   }
 
-  window.proceedToPay = async () => {
-    const subtotal = currentOrder.subtotal || currentOrder.total;
-    const grand = (subtotal + customerTip).toFixed(2);
-    try { await updateDoc(doc(db, 'orders', currentCode), { status: 'paid', customerTip, grandTotal: parseFloat(grand) }); } catch(e) { console.error(e); }
-    window.location.href = `https://venmo.com/Christian_Schrader?txn=pay&amount=${grand}&note=Lemonade%20Stand%20Order%20${currentCode}`;
-    showSuccess('💙', 'Venmo opened!', 'Please complete the payment in the Venmo app. Enjoy your lemonade! 🍋');
-  };
+  // Record what the customer is about to pay, then send them to Venmo.
+  // The order stays unpaid ('venmo_opened') until the cashier taps "Mark as paid".
+  async function openVenmo(tip) {
+    const grand = parseFloat((orderTotal() + tip).toFixed(2));
+    try {
+      await updateDoc(doc(db, 'orders', currentCode), { status: 'venmo_opened', customerTip: tip, grandTotal: grand, venmoOpenedAt: new Date() });
+    } catch (e) { console.error(e); }
+    showSuccess('💙', 'Venmo opened!', `Please finish paying ${money(grand)} in the Venmo app, then show the cashier. Enjoy your lemonade! 🍋`);
+    const note = encodeURIComponent(`${STAND_NAME} Order ${currentCode}`);
+    window.location.href = `https://venmo.com/${encodeURIComponent(VENMO_USERNAME)}?txn=pay&amount=${grand.toFixed(2)}&note=${note}`;
+  }
 
-  window.skipTip = async () => {
-    customerTip = 0;
-    const amount = (currentOrder.subtotal || currentOrder.total).toFixed(2);
-    try { await updateDoc(doc(db, 'orders', currentCode), { status: 'paid', customerTip: 0 }); } catch(e) { console.error(e); }
-    window.location.href = `https://venmo.com/Christian_Schrader?txn=pay&amount=${amount}&note=Lemonade%20Stand%20Order%20${currentCode}`;
-    showSuccess('💙', 'Venmo opened!', 'Please complete the payment in the Venmo app. Enjoy your lemonade! 🍋');
-  };
-
-  window.handlePay = async (method) => {
-    const amount = currentOrder.total.toFixed(2);
-    try { await updateDoc(doc(db, 'orders', currentCode), { status: 'paid' }); } catch (e) { console.error(e); }
-    if (method === 'venmo') {
-      window.location.href = `https://venmo.com/Christian_Schrader?txn=pay&amount=${amount}&note=C%26N%20Lemonade%20Order%20${currentCode}`;
-      showSuccess('💙', 'Venmo opened!', 'Please complete the payment in the Venmo app. Enjoy your lemonade! 🍋');
-    } else {
-      showSuccess('🍎', 'Payment confirmed!', 'Apple Pay went through. Enjoy your lemonade! 🍋');
-    }
-  };
+  window.proceedToPay = () => openVenmo(customerTip);
+  window.skipTip = () => openVenmo(0);
+  window.payNoExtraTip = () => openVenmo(0);
 
   function showSuccess(emoji, title, msg) {
     document.getElementById('successEmoji').textContent = emoji;
     document.getElementById('successTitle').textContent = title;
     document.getElementById('successMsg').textContent = msg;
-    document.getElementById('lookupView').style.display = 'none';
-    document.getElementById('orderView').style.display = 'none';
-    document.getElementById('successView').style.display = 'block';
+    show('successView');
   }
 
   window.resetCustomer = () => {
     currentCode = null; currentOrder = null; customerTip = 0;
     document.getElementById('codeInput').value = '';
+    document.getElementById('errorMsg').style.display = 'none';
     document.getElementById('lookupBtn').disabled = false;
     document.getElementById('lookupBtn').textContent = 'Look up order';
-    document.getElementById('lookupView').style.display = 'block';
-    document.getElementById('orderView').style.display = 'none';
-    document.getElementById('tipView').style.display = 'none';
-    document.getElementById('successView').style.display = 'none';
+    show('lookupView');
+    history.replaceState(null, '', location.pathname);
   };
 
   document.getElementById('codeInput').addEventListener('keydown', e => { if (e.key === 'Enter') window.lookupCode(); });
 
   // Auto-load if ?code= is in the URL (from QR scan)
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlCode = urlParams.get('code');
+  const urlCode = new URLSearchParams(window.location.search).get('code');
   if (urlCode && urlCode.length === 4) {
     document.getElementById('codeInput').value = urlCode.toUpperCase();
     window.lookupCode();

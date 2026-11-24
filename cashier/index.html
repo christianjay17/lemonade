@@ -169,6 +169,16 @@
   .new-order-btn { width: 100%; margin-top: 10px; padding: 14px; border-radius: 8px; border: 1px solid #ddd; background: #fff; font-size: 15px; color: #333; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .new-order-btn:active { background: #f5f5f5; }
   #codeView { display: none; }
+  .code-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .share-btn { flex: 1; padding: 13px 8px; border-radius: 8px; border: 1px solid #e8e0d0; background: #fff; font-size: 14px; font-weight: 600; color: #412402; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .share-btn:active { background: #FAEEDA; }
+  .share-btn:disabled { opacity: 0.5; }
+  .paid-btn { border-color: #C0DD97; color: #3B6D11; }
+  .share-status { font-size: 13px; color: #3B6D11; text-align: center; min-height: 18px; margin-top: 6px; }
+  .mark-paid-btn { font-size: 11px; padding: 3px 9px; border-radius: 99px; border: 1px solid #C0DD97; background: #fff; color: #3B6D11; font-weight: 600; cursor: pointer; margin-right: 6px; }
+  .mark-paid-btn:active { background: #EAF3DE; }
+  .hbadge-opened { background: #E6F1FB; color: #185FA5; }
+  .admin-note { font-size: 12px; color: #999; margin-bottom: 8px; line-height: 1.4; }
 
   /* ── MODAL BASE ── */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: none; align-items: flex-end; justify-content: center; }
@@ -256,7 +266,7 @@
 <!-- Profile Select Screen -->
 <div class="profile-screen" id="profileScreen">
   <div class="profile-logo">🍋</div>
-  <div class="profile-title">Lemonade Stand</div>
+  <div class="profile-title" data-stand-name>Lemonade Stand</div>
   <div class="profile-sub">Who's on the register?</div>
   <div class="profile-list" id="profileList"></div>
 </div>
@@ -304,7 +314,7 @@
   <div class="drawer" id="drawer">
     <div class="drawer-header">
       <div class="drawer-header-top">
-        <span class="drawer-logo">🍋 Lemonade Stand</span>
+        <span class="drawer-logo" data-stand-name-emoji>🍋 Lemonade Stand</span>
         <button class="drawer-close" onclick="closeDrawer()">✕</button>
       </div>
       <div class="drawer-user">
@@ -332,7 +342,7 @@
   <div class="header">
     <div class="header-emoji">🍋</div>
     <div>
-      <div class="header-title">Lemonade Stand</div>
+      <div class="header-title" data-stand-name>Lemonade Stand</div>
       <div class="header-sub">Cashier</div>
     </div>
     <div class="header-right">
@@ -421,6 +431,11 @@
         <div class="cash-note" id="cashReceivedNote" style="display:none;">
           ✅ Cash already collected — this code is just for their receipt.
         </div>
+        <div class="code-actions">
+          <button class="share-btn" id="shareBtn" onclick="shareOrder()">📤 Share link</button>
+          <button class="share-btn paid-btn" id="markPaidBtn" onclick="markCurrentPaid()">✅ Mark as paid</button>
+        </div>
+        <div class="share-status" id="shareStatus"></div>
         <button class="new-order-btn" onclick="resetCashier()">+ Start new order</button>
       </div>
     </div>
@@ -466,6 +481,11 @@
       <div class="admin-section">
         <div class="admin-section-title">Accounts & PINs</div>
         <div id="accountsList"></div>
+      </div>
+      <div class="admin-section">
+        <div class="admin-section-title">Admin PIN</div>
+        <p class="admin-note" id="adminPinNote"></p>
+        <button class="set-pin-btn" onclick="openSetPin('admin')">Change admin PIN</button>
       </div>
       <div class="admin-section">
         <div class="admin-section-title">Add New Account</div>
@@ -517,8 +537,34 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, getDocs, orderBy, query, deleteDoc, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // QR code generator
-  const CUSTOMER_URL = 'https://lemonade-customer.netlify.app';
+  // ==== STAND CONFIG (the only part to edit per customer) ====
+  const STAND_NAME = 'Lemonade Stand';
+  const DEFAULT_ADMIN_PIN = '03172013'; // 8 digits. Admin can change it in Admin Panel.
+  const DEFAULT_MENU = [
+    { emoji: '🍋', name: 'Classic Lemonade', price: 1.50 }
+  ];
+  // Leave '' to use the /pay/ folder next to this /cashier/ folder automatically.
+  const CUSTOMER_URL_OVERRIDE = 'https://lemonade-e48.pages.dev/customer'; // your site uses /customer/ instead of /pay/
+  const firebaseConfig = {
+    apiKey: "AIzaSyBv5S44GU9ESCv-gypE7ujawsz5Je0935U",
+    authDomain: "lemonade-10d16.firebaseapp.com",
+    projectId: "lemonade-10d16",
+    storageBucket: "lemonade-10d16.firebasestorage.app",
+    messagingSenderId: "190999159050",
+    appId: "1:190999159050:web:894ae02547b1e59fd59af3"
+  };
+  // ==== END STAND CONFIG ====
+
+  // Customer site URL, e.g. https://lemonade-e48.pages.dev/pay
+  const CUSTOMER_URL = (CUSTOMER_URL_OVERRIDE || new URL('../pay/', location.href).href).replace(/\/+$/, '');
+
+  // Escape text before putting it into HTML
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Apply stand name to the page
+  document.title = `${STAND_NAME} — Cashier`;
+  document.querySelectorAll('[data-stand-name]').forEach(el => el.textContent = STAND_NAME);
+  document.querySelectorAll('[data-stand-name-emoji]').forEach(el => el.textContent = '🍋 ' + STAND_NAME);
 
   function generateQR(text, canvasId, size=200) {
     // Use QRServer API to generate QR as image on canvas
@@ -531,23 +577,17 @@
     img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&bgcolor=ffffff&color=412402&margin=2`;
   }
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBv5S44GU9ESCv-gypE7ujawsz5Je0935U",
-    authDomain: "lemonade-10d16.firebaseapp.com",
-    projectId: "lemonade-10d16",
-    storageBucket: "lemonade-10d16.firebasestorage.app",
-    messagingSenderId: "190999159050",
-    appId: "1:190999159050:web:894ae02547b1e59fd59af3"
-  };
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
   // ── STATE ──
-  let MENU = [{ emoji: '🍋', name: 'Classic Lemonade', price: 1.50, custom: false }];
+  const baseMenu = () => DEFAULT_MENU.map(m => ({ ...m, custom: false }));
+  let MENU = baseMenu();
   let cart = {};
   let selectedPayment = null;
   let cashConfirmed = false;
   let tipAmount = 0;
+  let currentCode = null;
   let currentUser = null; // { id, name, color, emoji, isAdmin }
   let accounts = [];
   let selectedProfileId = null;
@@ -556,41 +596,53 @@
   let spTargetId = '';
   let spStep = 'enter'; // 'enter' | 'confirm'
   let spFirstPin = '';
+  let spLength = 4;
 
-  const ADMIN_PIN = '03172013';
+  let adminPin = DEFAULT_ADMIN_PIN; // replaced by config/accounts.adminPin once the admin changes it
   const COLORS = ['#E8A838','#3D95CE','#639922','#9B59B6','#E74C3C','#1ABC9C'];
-  const EMOJIS = ['👤','😊','⭐','🌟','🎯','🔥'];
 
   // ── ACCOUNTS ──
-  const CACHE_KEY = 'cn_lemonade_accounts';
+  // One cache per Firebase project, so two stands opened in the same browser never mix.
+  const CACHE_KEY = 'lemonade_accounts_' + firebaseConfig.projectId;
+
+  function readCache() {
+    try {
+      const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (c && Array.isArray(c.list)) { accounts = c.list; if (c.adminPin) adminPin = c.adminPin; return true; }
+    } catch(e) {}
+    return false;
+  }
+  function writeCache() {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ list: accounts, adminPin: adminPin !== DEFAULT_ADMIN_PIN ? adminPin : null })); } catch(e) {}
+  }
 
   async function loadAccounts() {
     // 1. Show cached accounts instantly if available
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      try { accounts = JSON.parse(cached); renderProfiles(); } catch(e) {}
-    }
+    if (readCache()) renderProfiles();
     // 2. Fetch from Firebase in background
     try {
       const snap = await getDoc(doc(db, 'config', 'accounts'));
-      if (snap.exists() && snap.data().list) {
-        accounts = snap.data().list;
+      if (snap.exists()) {
+        const data = snap.data();
+        accounts = Array.isArray(data.list) ? data.list : [];
+        adminPin = data.adminPin || DEFAULT_ADMIN_PIN;
       } else {
-        accounts = [
-          { id: 'nolan', name: 'Nolan', color: '#3D95CE', emoji: '👤', pin: null },
-          { id: 'christian', name: 'Christian', color: '#639922', emoji: '👤', pin: null },
-        ];
-        await saveAccounts();
+        accounts = []; // Not seeded yet: only Admin shows. Run setup.html or add accounts in Admin Panel.
       }
-      localStorage.setItem(CACHE_KEY, JSON.stringify(accounts));
+      writeCache();
     } catch(e) { console.error(e); }
-    // Re-render with fresh data (no flicker if same data)
     renderProfiles();
   }
 
   async function saveAccounts() {
     await setDoc(doc(db, 'config', 'accounts'), { list: accounts }, { merge: true });
-    localStorage.setItem(CACHE_KEY, JSON.stringify(accounts));
+    writeCache();
+  }
+
+  async function saveAdminPin(pin) {
+    await setDoc(doc(db, 'config', 'accounts'), { adminPin: pin }, { merge: true });
+    adminPin = pin;
+    writeCache();
   }
 
   function renderProfiles() {
@@ -599,7 +651,7 @@
     accounts.forEach(acc => {
       const btn = document.createElement('button');
       btn.className = 'profile-btn';
-      btn.innerHTML = `<div class="profile-avatar" style="background:${acc.color};color:#fff;">${acc.name[0].toUpperCase()}</div><span>${acc.name}</span>`;
+      btn.innerHTML = `<div class="profile-avatar" style="background:${esc(acc.color)};color:#fff;">${esc(acc.name[0].toUpperCase())}</div><span>${esc(acc.name)}</span>`;
       btn.onclick = () => selectProfile(acc.id);
       list.appendChild(btn);
     });
@@ -681,7 +733,7 @@
   function checkPin() {
     let correct = false;
     if (selectedProfileId === 'admin') {
-      correct = pinEntry === ADMIN_PIN;
+      correct = pinEntry === adminPin;
     } else {
       const acc = accounts.find(a => a.id === selectedProfileId);
       if (!acc.pin) {
@@ -730,7 +782,7 @@
 
   // ── MENU ──
   async function loadCustomItems() {
-    MENU = [{ emoji: '🍋', name: 'Classic Lemonade', price: 1.50, custom: false }];
+    MENU = baseMenu();
     try {
       const snap = await getDoc(doc(db, 'config', 'menu'));
       if (snap.exists() && snap.data().customItems) {
@@ -743,7 +795,7 @@
   function renderMenu() {
     document.getElementById('menuGrid').innerHTML = MENU.map((item, i) => `
       <div class="menu-item">
-        <div class="menu-left"><span>${item.emoji}</span><span>${item.name}</span></div>
+        <div class="menu-left"><span>${esc(item.emoji)}</span><span>${esc(item.name)}</span></div>
         <div class="menu-actions">
           <span class="menu-price">$${item.price.toFixed(2)}</span>
           ${item.custom ? `<div class="remove-item-btn" onclick="window._removeItem(${i})">✕</div>` : ''}
@@ -763,7 +815,7 @@
     keys.forEach(i => {
       const qty = cart[i]; const sub = MENU[i].price * qty;
       html += `<div class="cart-item">
-        <div class="cart-item-name"><span>${MENU[i].emoji}</span><span>${MENU[i].name}</span></div>
+        <div class="cart-item-name"><span>${esc(MENU[i].emoji)}</span><span>${esc(MENU[i].name)}</span></div>
         <div class="cart-item-controls">
           <div class="ctrl-btn" onclick="window._changeCart(${i},-1)">−</div>
           <span class="cart-qty">${qty}</span>
@@ -829,10 +881,19 @@
     const btn=document.getElementById('genBtn'), status=document.getElementById('status');
     btn.disabled=true; status.textContent='Creating order...';
     const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const code=Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+    const randomCode=()=>Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
     const items={}; Object.keys(cart).forEach(i=>{items[i]={name:MENU[i].name,emoji:MENU[i].emoji,price:MENU[i].price,qty:cart[i]};});
     const subtotal=getTotal(), total=getGrandTotal();
     try {
+      // Pick a code that isn't already used by an order
+      let code=null;
+      for(let tries=0;tries<10&&!code;tries++){
+        const c=randomCode();
+        const existing=await getDoc(doc(db,'orders',c));
+        if(!existing.exists()) code=c;
+      }
+      if(!code) throw new Error('Could not find a free order code');
+      currentCode=code;
       await setDoc(doc(db,'orders',code),{items,subtotal,tip:tipAmount,total,payment:selectedPayment,cashPaid:cashConfirmed,createdAt:new Date(),status:cashConfirmed?'paid':'pending',cashier:currentUser.name});
       document.getElementById('generatedCode').textContent=code;
       const parts=Object.keys(items).map(i=>`${items[i].emoji} ${items[i].name} ×${items[i].qty}`);
@@ -841,6 +902,9 @@
       const badge=document.getElementById('codeBadge');
       if(selectedPayment==='cash'){badge.textContent='💵 Cash — already paid';badge.className='code-badge badge-cash';document.getElementById('cashReceivedNote').style.display='flex';}
       else{badge.textContent='💙 Venmo';badge.className='code-badge badge-digital';document.getElementById('cashReceivedNote').style.display='none';}
+      const mp=document.getElementById('markPaidBtn');
+      mp.style.display=cashConfirmed?'none':'block'; mp.disabled=false; mp.textContent='✅ Mark as paid';
+      document.getElementById('shareStatus').textContent='';
       document.getElementById('buildView').style.display='none';
       document.getElementById('codeView').style.display='block';
       status.textContent='';
@@ -849,8 +913,38 @@
     } catch(e){status.textContent='Error saving order.';btn.disabled=false;console.error(e);}
   };
 
+  // Share the customer link (phone share sheet, or copy to clipboard on computers)
+  window.shareOrder = async () => {
+    if(!currentCode) return;
+    const url=`${CUSTOMER_URL}/?code=${currentCode}`;
+    const st=document.getElementById('shareStatus');
+    try {
+      if(navigator.share){ await navigator.share({ title: STAND_NAME, text: `Your ${STAND_NAME} order code is ${currentCode}`, url }); }
+      else { await navigator.clipboard.writeText(url); st.textContent='Link copied!'; }
+    } catch(e) {
+      if(e && e.name==='AbortError') return; // user closed the share sheet
+      st.textContent=url; // last resort: show the link so it can be copied by hand
+    }
+  };
+
+  // Cashier confirms the Venmo payment actually arrived
+  async function markPaid(code) {
+    await updateDoc(doc(db,'orders',code),{status:'paid',paidAt:new Date(),markedPaidBy:currentUser.name});
+  }
+  window.markCurrentPaid = async () => {
+    const b=document.getElementById('markPaidBtn');
+    b.disabled=true; b.textContent='Saving...';
+    try { await markPaid(currentCode); b.textContent='✅ Paid'; }
+    catch(e){ console.error(e); b.disabled=false; b.textContent='✅ Mark as paid'; document.getElementById('shareStatus').textContent='Could not save. Try again.'; }
+  };
+  window.markHistoryPaid = async (code, btn) => {
+    btn.disabled=true; btn.textContent='...';
+    try { await markPaid(code); openHistory(); }
+    catch(e){ console.error(e); btn.disabled=false; btn.textContent='Mark paid'; }
+  };
+
   window.resetCashier = () => {
-    cart={}; selectedPayment=null; cashConfirmed=false; tipAmount=0;
+    cart={}; selectedPayment=null; cashConfirmed=false; tipAmount=0; currentCode=null;
     document.getElementById('tipCustom').value='';
     document.querySelectorAll('.tip-preset').forEach(p=>p.classList.remove('selected'));
     document.getElementById('tipSection').style.display='none';
@@ -886,26 +980,27 @@
         if(isPaid) paidCount++; else pendingCount++;
         const orderGrandTotal = parseFloat(o.grandTotal || o.total || 0);
         totalRev+=isPaid?orderGrandTotal:0;
-        const itemLines=Object.values(o.items||{}).map(it=>`${it.emoji} ${it.name} ×${it.qty}`).join(', ');
-        console.log('ORDER', code, 'customerTip:', o.customerTip, 'tip:', o.tip, 'grandTotal:', o.grandTotal, 'total:', o.total);
+        const itemLines=Object.values(o.items||{}).map(it=>`${esc(it.emoji)} ${esc(it.name)} ×${esc(it.qty)}`).join(', ');
         const totalTip = parseFloat(o.customerTip || 0) + parseFloat(o.tip || 0);
         const subtotal = parseFloat(o.subtotal || o.total || 0);
         const displayTotal = totalTip > 0 ? subtotal : parseFloat(o.grandTotal || o.total || 0);
         const tipLine = totalTip > 0 ? ` + $${totalTip.toFixed(2)} tip` : '';
         let time='';
         if(o.createdAt&&o.createdAt.toDate){const d2=o.createdAt.toDate();time=d2.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' · '+d2.toLocaleDateString([],{month:'short',day:'numeric'});}
-        const badgeClass=isCash?'hbadge-cash':isPaid?'hbadge-paid':'hbadge-pending';
-        const badgeText=isCash?'💵 Cash':isPaid?'💙 Paid':'⏳ Pending';
-        const whoTag=isAdmin&&o.cashier?`<span class="history-who" style="background:#faf6ee;color:#854F0B;">${o.cashier}</span>`:'';
+        const opened=!isPaid&&o.status==='venmo_opened';
+        const badgeClass=isCash?'hbadge-cash':isPaid?'hbadge-paid':opened?'hbadge-opened':'hbadge-pending';
+        const badgeText=isCash?'💵 Cash':isPaid?'💙 Paid':opened?'💙 Venmo opened':'⏳ Pending';
+        const markBtn=isPaid?'':`<button class="mark-paid-btn" onclick="markHistoryPaid('${esc(code)}', this)">Mark paid</button>`;
+        const whoTag=isAdmin&&o.cashier?`<span class="history-who" style="background:#faf6ee;color:#854F0B;">${esc(o.cashier)}</span>`:'';
         html+=`<div class="history-item">
           <div class="history-item-header">
-            <span class="history-code">${code}</span>
+            <span class="history-code">${esc(code)}</span>
             <div class="history-meta">${whoTag}<span class="history-time">${time}</span></div>
           </div>
           <div class="history-items-list">${itemLines}</div>
           <div class="history-footer">
             <span class="history-total">$${displayTotal.toFixed(2)}${tipLine}</span>
-            <span class="history-badge ${badgeClass}">${badgeText}</span>
+            <span>${markBtn}<span class="history-badge ${badgeClass}">${badgeText}</span></span>
           </div>
         </div>`;
       });
@@ -940,6 +1035,9 @@
   // ── ADMIN ──
   window.openAdmin=()=>{
     document.getElementById('adminModal').classList.add('open');
+    document.getElementById('adminPinNote').textContent = adminPin===DEFAULT_ADMIN_PIN
+      ? 'Still using the starting admin PIN. Change it to your own 8-digit PIN.'
+      : 'Custom admin PIN is set.';
     renderAccountsList();
   };
   window.closeAdmin=()=>document.getElementById('adminModal').classList.remove('open');
@@ -952,9 +1050,9 @@
       wrapper.innerHTML=`
         <div class="account-row">
           <div class="account-info">
-            <div class="account-avatar" style="background:${acc.color};color:#fff;">${acc.name[0].toUpperCase()}</div>
+            <div class="account-avatar" style="background:${esc(acc.color)};color:#fff;">${esc(acc.name[0].toUpperCase())}</div>
             <div>
-              <div class="account-name">${acc.name}</div>
+              <div class="account-name">${esc(acc.name)}</div>
               <div class="account-pin-status">${acc.pin?'PIN set':'No PIN'}</div>
             </div>
           </div>
@@ -964,7 +1062,7 @@
           </div>
         </div>
         <div class="delete-confirm-row" id="del-${acc.id}">
-          <p>Delete <strong>${acc.name}</strong>? This cannot be undone.</p>
+          <p>Delete <strong>${esc(acc.name)}</strong>? This cannot be undone.</p>
           <div class="delete-confirm-btns">
             <button class="delete-yes" onclick="deleteAccount('${acc.id}')">Yes, delete</button>
             <button class="delete-no" onclick="hideDeleteConfirm('${acc.id}')">Cancel</button>
@@ -1002,7 +1100,7 @@
     if(accounts.find(a=>a.name.toLowerCase()===name.toLowerCase())){errEl.textContent='An account with that name already exists.';errEl.style.display='block';return;}
     errEl.style.display='none'; btn.disabled=true; btn.textContent='Adding...';
     const colorIdx=accounts.length%COLORS.length;
-    const newAcc={id:name.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now(),name,color:COLORS[colorIdx],emoji:'👤',pin:null};
+    const newAcc={id:(name.toLowerCase().replace(/[^a-z0-9]+/g,'_')||'user')+'_'+Date.now(),name,color:COLORS[colorIdx],emoji:'👤',pin:null};
     accounts.push(newAcc);
     try{await saveAccounts();nameEl.value='';renderProfiles();renderAccountsList();}
     catch(e){errEl.textContent='Failed to save.';errEl.style.display='block';accounts.pop();console.error(e);}
@@ -1010,26 +1108,31 @@
   };
 
   // ── SET PIN ──
+  // Set PIN works for cashier accounts (4 digits) and the admin (8 digits)
   window.openSetPin=(id)=>{
     spTargetId=id; spEntry=''; spFirstPin=''; spStep='enter';
-    const acc=accounts.find(a=>a.id===id);
-    document.getElementById('setPinTitle').textContent=`Set PIN — ${acc.name}`;
-    document.getElementById('setPinLabel').textContent='Enter new PIN (4 digits)';
+    spLength = id==='admin' ? 8 : 4;
+    const name = id==='admin' ? 'Admin' : (accounts.find(a=>a.id===id)||{}).name;
+    document.getElementById('setPinTitle').textContent=`Set PIN — ${name}`;
+    document.getElementById('setPinLabel').textContent=`Enter new PIN (${spLength} digits)`;
     document.getElementById('setPinError').textContent='';
+    const dots=document.getElementById('setPinDots');
+    dots.innerHTML='';
+    for(let i=0;i<spLength;i++){const d=document.createElement('div');d.className='pin-dot';d.id='spd'+i;dots.appendChild(d);}
     updateSpDots();
     document.getElementById('setPinModal').classList.add('open');
   };
   window.closeSetPin=()=>{document.getElementById('setPinModal').classList.remove('open');};
 
   window.spPress=(digit)=>{
-    if(spEntry.length>=4)return;
+    if(spEntry.length>=spLength)return;
     spEntry+=digit; updateSpDots();
-    if(spEntry.length===4) setTimeout(handleSpComplete,150);
+    if(spEntry.length===spLength) setTimeout(handleSpComplete,150);
   };
   window.spDelete=()=>{spEntry=spEntry.slice(0,-1);updateSpDots();document.getElementById('setPinError').textContent='';};
 
   function updateSpDots(){
-    for(let i=0;i<4;i++){
+    for(let i=0;i<spLength;i++){
       const d=document.getElementById('spd'+i);
       if(!d)return;
       d.classList.toggle('filled',i<spEntry.length);
@@ -1044,17 +1147,22 @@
       updateSpDots();
     } else {
       if(spEntry===spFirstPin){
-        const acc=accounts.find(a=>a.id===spTargetId);
-        acc.pin=spEntry;
         try{
-          await saveAccounts();
+          if(spTargetId==='admin'){
+            await saveAdminPin(spEntry);
+            openAdmin();
+          } else {
+            const acc=accounts.find(a=>a.id===spTargetId);
+            acc.pin=spEntry;
+            await saveAccounts();
+            renderAccountsList();
+          }
           document.getElementById('setPinModal').classList.remove('open');
-          renderAccountsList();
         } catch(e){document.getElementById('setPinError').textContent='Failed to save.';console.error(e);}
       } else {
-        for(let i=0;i<4;i++){const d=document.getElementById('spd'+i);if(d)d.classList.add('error');}
+        for(let i=0;i<spLength;i++){const d=document.getElementById('spd'+i);if(d)d.classList.add('error');}
         document.getElementById('setPinError').textContent="PINs don't match, try again";
-        setTimeout(()=>{spEntry='';spFirstPin='';spStep='enter';updateSpDots();document.getElementById('setPinLabel').textContent='Enter new PIN (4 digits)';document.getElementById('setPinError').textContent='';},1200);
+        setTimeout(()=>{spEntry='';spFirstPin='';spStep='enter';updateSpDots();document.getElementById('setPinLabel').textContent=`Enter new PIN (${spLength} digits)`;document.getElementById('setPinError').textContent='';},1200);
       }
     }
   }
@@ -1077,6 +1185,9 @@
     if(document.getElementById('pinScreen').classList.contains('active')){
       if(e.key>='0'&&e.key<='9')pinPress(e.key);
       if(e.key==='Backspace')pinDelete();
+    } else if(document.getElementById('setPinModal').classList.contains('open')){
+      if(e.key>='0'&&e.key<='9')spPress(e.key);
+      if(e.key==='Backspace')spDelete();
     }
   });
 
